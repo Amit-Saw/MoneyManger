@@ -26,7 +26,8 @@ public class ProfileService {
 
         // Send activation email logic
         try {
-            String activationLink = "http://localhost:8080/api/v1.0/activate?token=" + newProfile.getActivationToken();
+            // Context path is /api/v1.0 and controller mapping is /profile/activate
+            String activationLink = "http://localhost:8080/api/v1.0/profile/activate?token=" + newProfile.getActivationToken();
             String subject = "Activate your account";
             String body = "Click the following link to activate your account: " + activationLink;
             if (emailServices != null) {
@@ -62,5 +63,14 @@ public class ProfileService {
                 .createdAt(profileEntity.getCreatedAt())
                 .updatedAt(profileEntity.getUpdatedAt())
                 .build();
+    }
+
+    public boolean activateProfile(String activationToken) {
+        return profileRepository.findByActivationToken(activationToken).map(profile -> {
+            profile.setIsActive(true);
+            profile.setActivationToken(null); // Clear the token after activation
+            profileRepository.save(profile);
+            return true;
+        }).orElse(false);
     }
 }

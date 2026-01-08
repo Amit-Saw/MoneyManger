@@ -41,7 +41,6 @@ public class ProfileEntity {
     }
 
     public void setActivationToken(String token) {
-    this.activationToken = token;
-
+        this.activationToken = token;
     }
 }
