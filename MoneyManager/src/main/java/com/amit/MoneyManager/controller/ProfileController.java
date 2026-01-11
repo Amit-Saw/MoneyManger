@@ -1,8 +1,11 @@
 package com.amit.MoneyManager.controller;
 
+import com.amit.MoneyManager.dto.AuthDTO;
 import com.amit.MoneyManager.dto.ProfileDTO;
 import com.amit.MoneyManager.service.ProfileService;
 import lombok.RequiredArgsConstructor;
+
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -33,6 +36,25 @@ public class ProfileController {
         } else {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid activation token.");
         }
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<Map<String, Object>> login(@RequestBody AuthDTO authDTO) {
+       try {
+           if(!profileService.isAccountActive(authDTO.getEmail())) {
+               return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", "Account is not activated. Please activate your account."));
+           } else {
+                 Map<String, Object> response = profileService.authenticateAndGenerateToken(authDTO);
+                return ResponseEntity.ok(response);
+           }
+       } catch (Exception e) {
+           return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", e.getMessage()));
+       }
+    }
+
+    @GetMapping("/test")
+    public String test(){
+        return "test successful";
     }
 }
 

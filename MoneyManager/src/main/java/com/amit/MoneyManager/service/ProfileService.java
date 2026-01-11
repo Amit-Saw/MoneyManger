@@ -1,12 +1,23 @@
 package com.amit.MoneyManager.service;
 
 
+import com.amit.MoneyManager.dto.AuthDTO;
 import com.amit.MoneyManager.dto.ProfileDTO;
 import com.amit.MoneyManager.entity.ProfileEntity;
 import com.amit.MoneyManager.repository.ProfileRepository;
+import com.amit.MoneyManager.util.JwtUtil;
+
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
 import java.util.UUID;
 
 
@@ -17,6 +28,9 @@ public class ProfileService {
 
     private final ProfileRepository profileRepository ;
     private final EmailServices emailServices;
+    private final PasswordEncoder passwordEncoder;
+    private final AuthenticationManager authenticationManager;
+    private final JwtUtil jwtUtil;
 
     public ProfileDTO registerProfile(ProfileDTO profileDTO) {
         // Implementation for registering a profile
@@ -46,7 +60,7 @@ public class ProfileService {
                 .id(profileDTO.getId())
                 .name(profileDTO.getName())
                 .email(profileDTO.getEmail())
-                .password(profileDTO.getPassword())
+                .password(passwordEncoder.encode(profileDTO.getPassword()))
                 .profileImageUrl(profileDTO.getProfileImageUrl())
                 .createdAt(profileDTO.getCreatedAt())
                 .updatedAt(profileDTO.getUpdatedAt())
@@ -72,5 +86,55 @@ public class ProfileService {
             profileRepository.save(profile);
             return true;
         }).orElse(false);
+    }
+
+    public boolean isEmailActive(String email) {
+        return profileRepository.findByEmail(email)
+                .map(ProfileEntity::getIsActive)
+                .orElse(false);
+    }
+
+    public boolean isAccountActive(String email) {
+        return isEmailActive(email);
+    }
+
+    public ProfileEntity getCurrentProfile() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String email = authentication.getName();
+        return profileRepository.findByEmail(email).orElseThrow(() -> new UsernameNotFoundException("Profile not found with email: " + email));
+    }
+
+    public ProfileDTO getPublicProfile(String email) {
+        ProfileEntity currentUser = null;
+       if (email == null || email.isEmpty()) {
+              currentUser = getCurrentProfile();
+       } else {
+           currentUser = profileRepository.findByEmail(email)
+                   .orElseThrow(() -> new UsernameNotFoundException("Profile not found with email: " + email));
+       }
+        
+       return ProfileDTO.builder()
+               .id(currentUser.getId())
+               .name(currentUser.getName())
+               .email(currentUser.getEmail())
+               .profileImageUrl(currentUser.getProfileImageUrl())
+               .createdAt(currentUser.getCreatedAt())
+               .updatedAt(currentUser.getUpdatedAt())
+               .build();
+    }
+
+    public Map<String, Object> authenticateAndGenerateToken(AuthDTO authDTO) {
+        // Implementation for authenticating user and generating token
+       try {
+           authenticationManager.authenticate(
+                   new UsernamePasswordAuthenticationToken(authDTO.getEmail(), authDTO.getPassword()));
+                   String token = jwtUtil.generateToken(authDTO.getEmail());
+                   return Map.of("token", token,
+                   "User", getPublicProfile(authDTO.getEmail())
+           );
+
+        } catch (Exception e) {
+           throw new RuntimeException("Invalid credentials");
+        }
     }
 }
